@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Problem Workspace - IdeaBridge</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark px-4 shadow-sm">
+        <a class="navbar-brand fw-bold" href="#">IdeaBridge Workspace</a>
+        <div class="ms-auto">
+            <a href="{{ url_for('provider_dashboard' if session['role'] == 'provider' else 'solver_dashboard') }}" class="btn btn-outline-light btn-sm me-2">Back to Dashboard</a>
+            <a href="/logout" class="btn btn-outline-danger btn-sm">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container my-5">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="card shadow-sm border-0 p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <h2 class="fw-bold text-primary mb-0">{{ problem.title }}</h2>
+                <span class="badge bg-info text-dark fs-6">{{ problem.status }}</span>
+            </div>
+            <h6 class="text-muted mb-3">Domain: <strong>{{ problem.domain }}</strong> | Posted by: <strong>{{ problem.provider_name }}</strong></h6>
+            <p class="fs-6 text-secondary">{{ problem.description }}</p>
+            
+            <hr>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <strong class="me-2">Active Collaborators:</strong>
+                    {% for c in collaborators %}
+                        <span class="badge bg-secondary me-1 p-2">{{ c.name }}</span>
+                    {% else %}
+                        <span class="text-muted small">No solvers joined yet.</span>
+                    {% endfor %}
+                </div>
+                {% if session['role'] == 'solver' %}
+                <a href="/join_problem/{{ problem.id }}" class="btn btn-success btn-sm fw-bold"><i class="bi bi-person-plus-fill me-1"></i> Join Collaboration Team</a>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if problem.status not in ['Solved', 'Patented'] %}
+        <div class="card shadow-sm border-0 p-4 mb-4">
+            <h4 class="mb-3 text-primary fw-bold"><i class="bi bi-journal-text me-2"></i>Incremental Progress & Feedback Loop</h4>
+            
+            {% for inc in increments %}
+            <div class="border rounded p-3 mb-3 bg-white shadow-sm">
+                <div class="d-flex justify-content-between">
+                    <strong class="text-dark"><i class="bi bi-person-circle me-1"></i> {{ inc.solver_name }}</strong>
+                    <span class="text-muted small">{{ inc.created_at }}</span>
+                </div>
+                <p class="mt-2 mb-2 text-secondary">{{ inc.update_text }}</p>
+                
+                {% if inc.feedback_text %}
+                    <div class="bg-light p-3 rounded border mt-2">
+                        <div class="text-primary fw-bold small mb-1"><i class="bi bi-chat-left-dots me-1"></i> Provider Review:</div>
+                        <div>{{ inc.feedback_text }}</div>
+                        <div class="mt-1"><span class="badge bg-warning text-dark">Rating: {{ inc.satisfaction_rating }}/5 Stars</span></div>
+                    </div>
+                {% elif session['role'] == 'provider' %}
+                    <form action="/provide_feedback/{{ inc.id }}/{{ problem.id }}" method="POST" class="mt-3 bg-light p-2 rounded">
+                        <div class="row g-2">
+                            <div class="col-md-7">
+                                <input type="text" name="feedback_text" placeholder="Write feedback for this update..." class="form-control form-control-sm" required>
+                            </div>
+                            <div class="col-md-3">
+                                <select name="satisfaction_rating" class="form-select form-select-sm" required>
+                                    <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
+                                    <option value="4">⭐⭐⭐⭐ (4/5)</option>
+                                    <option value="3">⭐⭐⭐ (3/5)</option>
+                                    <option value="2">⭐⭐ (2/5)</option>
+                                    <option value="1">⭐ (1/5)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-sm btn-primary w-100 fw-bold">Submit Review</button>
+                            </div>
+                        </div>
+                    </form>
+                {% endif %}
+            </div>
+            {% else %}
+            <p class="text-muted small mb-0">No updates posted yet.</p>
+            {% endfor %}
+
+            {% if session['role'] == 'solver' %}
+            <hr class="my-4">
+            <form action="/submit_increment/{{ problem.id }}" method="POST">
+                <h5 class="fw-bold mb-2">Submit Milestone Update</h5>
+                <div class="mb-3">
+                    <textarea name="update_text" rows="3" class="form-control" placeholder="Share your latest design, code snippet, or progress notes..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-secondary fw-bold">Post Update</button>
+            </form>
+            {% endif %}
+        </div>
+
+        {% if session['role'] == 'solver' %}
+        <div class="card shadow-sm border-0 p-4 mb-4 border-top border-success border-4">
+            <h4 class="text-success fw-bold mb-3"><i class="bi bi-check-circle-fill me-2"></i>Final Solution Submission & Patent Settlement</h4>
+            <form action="/finalize_solution/{{ problem.id }}" method="POST">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Final Solution & Repository / Patent Documentation</label>
+                    <textarea name="solution_text" rows="3" class="form-control" placeholder="Detailed architectural breakdown, GitHub link, or patent abstract..." required></textarea>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Monetary Demand (₹) (Optional)</label>
+                        <input type="number" step="0.01" name="monetary_demand" class="form-control" value="0.00">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Action Type</label>
+                        <select name="action_type" class="form-select" required>
+                            <option value="solved">Mark as Solved</option>
+                            <option value="patented">Mark as Patented & Solved (Lock Problem)</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-success fw-bold px-4">Finalize & Submit Solution</button>
+            </form>
+        </div>
+        {% endif %}
+        
+        {% else %}
+        <div class="card shadow-sm border-0 p-4 bg-success text-white">
+            <h3 class="fw-bold mb-2"><i class="bi bi-award-fill me-2"></i>Problem Finalized (Status: {{ problem.status }})</h3>
+            <p class="fs-5 mt-2"><strong>Final Solution:</strong> {{ problem.solution_text }}</p>
+            {% if problem.monetary_demand > 0 %}
+            <p class="mb-0 fs-6"><strong>Monetary Reward / Royalty Demand:</strong> ₹{{ problem.monetary_demand }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
